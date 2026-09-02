@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "945703017398",
+    "project_id": "moneo-30b0b",
+    "storage_bucket": "moneo-30b0b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:945703017398:android:4b2a8a00e936b181443f17",
+        "android_client_info": {
+          "package_name": "com.example.moneo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "945703017398-38bsdb8qntplg2ki1idq1uj7c78v7um7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.moneo",
+            "certificate_hash": "638e9bd44eeeb489568e1b3ff20a351ec3744773"
+          }
+        },
+        {
+          "client_id": "945703017398-umchtqfv6frhm8uscm4sl3bsdhu9fk96.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCRzfIbkkIewBTkdvxASIeX1-bVdhlbBM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "945703017398-umchtqfv6frhm8uscm4sl3bsdhu9fk96.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "945703017398-v8987gpucu7d8crjhi9oua01bp9h2545.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.moneo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
