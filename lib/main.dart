@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'acceuil.dart';
+import 'onboarding_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +30,7 @@ class MyApp extends StatelessWidget {
         colorSchemeSeed: Colors.teal,
       ),
 
-      home: const LoginScreen(),
+      home: const OnboardingPage(),
     );
   }
 }
