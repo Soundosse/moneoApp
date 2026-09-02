@@ -1,0 +1,38 @@
+  # Run with:
+  # dart run flutter_launcher_icons
+
+  flutter_launcher_icons:
+    android: "launcher_icon"
+    ios: true
+
+    # Main icon
+    image_path: "assets/images/app_icon.png"
+
+    # Android
+    min_sdk_android: 21
+
+    # Android adaptive icon
+    adaptive_icon_background: "assets/images/background.png"
+    adaptive_icon_foreground: "assets/images/foreground.png"
+    adaptive_icon_foreground_inset: 21
+
+    # iOS
+    remove_alpha_ios: true
+
+    # Web
+    web:
+      generate: true
+      image_path: "assets/images/app_icon.png"
+      background_color: "#FFFFFF"
+      theme_color: "#FFFFFF"
+
+    # Windows
+    windows:
+      generate: true
+      image_path: "assets/images/app_icon.png"
+      icon_size: 48
+
+    # macOS
+    macos:
+      generate: true
+      image_path: "assets/images/app_icon.png"
