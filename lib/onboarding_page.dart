@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dashboardPage.dart';
 
 class OnboardingPage extends StatefulWidget {
 const OnboardingPage({super.key});
@@ -18,7 +20,7 @@ with SingleTickerProviderStateMixin {
 int _currentPage = 0;
 
 // ============================================================
-// IMAGES DE L'ONBOARDING
+// IMAGES
 // ============================================================
 
 final List<String> _images = [
@@ -32,7 +34,7 @@ final List<String> _images = [
 ];
 
 // ============================================================
-// ANIMATION DU BOUTON GET STARTED
+// ANIMATION GET STARTED
 // ============================================================
 
 late AnimationController _buttonController;
@@ -43,23 +45,44 @@ late Animation<double> _buttonOpacity;
 Timer? _buttonTimer;
 
 // ============================================================
-// INITIALISATION
+// SWIPE
+// ============================================================
+
+double _dragStartX = 0;
+
+static const double _swipeThreshold = 60;
+
+// ============================================================
+// INIT
 // ============================================================
 
 @override
 void initState() {
 super.initState();
 
+// ==========================================================
+// CACHER UNIQUEMENT LA BARRE DE NAVIGATION ANDROID
+// ==========================================================
+
+SystemChrome.setEnabledSystemUIMode(
+SystemUiMode.manual,
+overlays: const [
+SystemUiOverlay.top,
+],
+);
+
+// ==========================================================
+// ANIMATION
+// ==========================================================
+
 _buttonController = AnimationController(
 vsync: this,
-
-// Animation plus lente pour être bien visible
 duration: const Duration(milliseconds: 1500),
 );
 
-// ------------------------------------------------------------
-// SCALE : petit → grand
-// ------------------------------------------------------------
+// ----------------------------------------------------------
+// SCALE
+// ----------------------------------------------------------
 
 _buttonScale = Tween<double>(
 begin: 0.75,
@@ -71,9 +94,9 @@ curve: Curves.easeOutBack,
 ),
 );
 
-// ------------------------------------------------------------
-// OPACITY : transparent → visible
-// ------------------------------------------------------------
+// ----------------------------------------------------------
+// OPACITY
+// ----------------------------------------------------------
 
 _buttonOpacity = Tween<double>(
 begin: 0.0,
@@ -87,16 +110,14 @@ curve: Curves.easeOut,
 }
 
 // ============================================================
-// LANCER L'ANIMATION DU BOUTON
+// GET STARTED ANIMATION
 // ============================================================
 
 void _startButtonAnimation() {
 _buttonTimer?.cancel();
 
-// Remettre le bouton à son état initial
 _buttonController.reset();
 
-// Petite pause avant l'apparition
 _buttonTimer = Timer(
 const Duration(milliseconds: 700),
 () {
@@ -110,36 +131,74 @@ _buttonController.forward();
 }
 
 // ============================================================
-// PAGE SUIVANTE
+// NEXT
 // ============================================================
 
 void _nextPage() {
-if (_currentPage < _images.length - 1) {
+if (_currentPage >= _images.length - 1) {
+return;
+}
+
 setState(() {
 _currentPage++;
 });
 
-// Si on arrive sur la dernière page
 if (_currentPage == _images.length - 1) {
 _startButtonAnimation();
 }
-} else {
-// ========================================================
-// GET STARTED
-// ========================================================
+}
 
-// Ici tu peux mettre ta navigation vers Login.
+// ============================================================
+// PREVIOUS
+// ============================================================
 
-// Exemple :
-//
-// Navigator.pushReplacement(
-//   context,
-//   MaterialPageRoute(
-//     builder: (context) => const LoginScreen(),
-//   ),
-// );
+void _previousPage() {
+if (_currentPage <= 0) {
+return;
+}
 
-debugPrint('Get Started pressed');
+// Si on quitte la dernière page
+if (_currentPage == _images.length - 1) {
+_buttonTimer?.cancel();
+_buttonController.reset();
+}
+
+setState(() {
+_currentPage--;
+});
+}
+
+// ============================================================
+// SWIPE START
+// ============================================================
+
+void _handleDragStart(DragStartDetails details) {
+_dragStartX = details.globalPosition.dx;
+}
+
+// ============================================================
+// SWIPE END
+// ============================================================
+
+void _handleDragEnd(DragEndDetails details) {
+final double dragEndX = details.globalPosition.dx;
+
+final double difference = dragEndX - _dragStartX;
+
+// ----------------------------------------------------------
+// GAUCHE → NEXT
+// ----------------------------------------------------------
+
+if (difference < -_swipeThreshold) {
+_nextPage();
+}
+
+// ----------------------------------------------------------
+// DROITE → PREVIOUS
+// ----------------------------------------------------------
+
+else if (difference > _swipeThreshold) {
+_previousPage();
 }
 }
 
@@ -152,6 +211,11 @@ void dispose() {
 _buttonTimer?.cancel();
 _buttonController.dispose();
 
+// Remettre la navigation Android normale
+SystemChrome.setEnabledSystemUIMode(
+SystemUiMode.edgeToEdge,
+);
+
 super.dispose();
 }
 
@@ -161,29 +225,45 @@ super.dispose();
 
 @override
 Widget build(BuildContext context) {
+final bool isFirstPage = _currentPage == 0;
+
 final bool isLastPage =
 _currentPage == _images.length - 1;
 
 return Scaffold(
 backgroundColor: Colors.black,
 
-// ==========================================================
+// ========================================================
 // BODY
-// ==========================================================
+// ========================================================
 
-body: Stack(
+body: GestureDetector(
+behavior: HitTestBehavior.opaque,
+
+onHorizontalDragStart:
+_handleDragStart,
+
+onHorizontalDragEnd:
+_handleDragEnd,
+
+child: Stack(
 fit: StackFit.expand,
+
 children: [
 
-// ======================================================
+// ==================================================
 // IMAGE DE FOND
-// ======================================================
+// ==================================================
 
 AnimatedSwitcher(
-duration: const Duration(milliseconds: 500),
+duration:
+const Duration(milliseconds: 500),
 
-switchInCurve: Curves.easeIn,
-switchOutCurve: Curves.easeOut,
+switchInCurve:
+Curves.easeIn,
+
+switchOutCurve:
+Curves.easeOut,
 
 transitionBuilder: (
 Widget child,
@@ -208,11 +288,8 @@ height: double.infinity,
 
 fit: BoxFit.cover,
 
-filterQuality: FilterQuality.high,
-
-// ==================================================
-// SÉCURITÉ SI L'IMAGE N'EST PAS TROUVÉE
-// ==================================================
+filterQuality:
+FilterQuality.high,
 
 errorBuilder: (
 BuildContext context,
@@ -220,27 +297,29 @@ Object error,
 StackTrace? stackTrace,
 ) {
 debugPrint(
-'Erreur image : ${_images[_currentPage]}',
+'Erreur image : '
+'${_images[_currentPage]}',
 );
 
 return Container(
-width: double.infinity,
-height: double.infinity,
-
 color: Colors.black,
 
-alignment: Alignment.center,
+alignment:
+Alignment.center,
 
 child: Padding(
-padding: const EdgeInsets.all(24),
+padding:
+const EdgeInsets.all(24),
 
 child: Text(
 'Image introuvable :\n'
 '${_images[_currentPage]}',
 
-textAlign: TextAlign.center,
+textAlign:
+TextAlign.center,
 
-style: const TextStyle(
+style:
+const TextStyle(
 color: Colors.white,
 fontSize: 16,
 ),
@@ -252,73 +331,72 @@ fontSize: 16,
 ),
 ),
 
-// ======================================================
-// CONTENU HAUT + INDICATEURS
-// ======================================================
+// ==================================================
+// HEADER
+// ==================================================
 
-SafeArea(
-child: Column(
+Positioned(
+top: 0,
+left: 0,
+right: 0,
+
+child: SafeArea(
+child: Padding(
+padding:
+const EdgeInsets.only(
+left: 18,
+right: 18,
+top: 10,
+),
+
+child: Row(
+mainAxisAlignment:
+MainAxisAlignment
+    .spaceBetween,
+
+crossAxisAlignment:
+CrossAxisAlignment.start,
+
 children: [
 
+// ========================================
+// PREVIOUS
+// ========================================
+
+if (!isFirstPage)
+_buildPreviousButton()
+else
+const SizedBox(
+width: 92,
+height: 38,
+),
+
+// ========================================
+// NEXT
+// ========================================
+
+if (!isLastPage)
+_buildNextButton()
+else
+const SizedBox(
+width: 65,
+height: 38,
+),
+],
+),
+),
+),
+),
+
 // ==================================================
-// BOUTON NEXT
+// INDICATORS
 // ==================================================
 
 if (!isLastPage)
-Align(
-alignment: Alignment.topRight,
-
-child: Padding(
-padding: const EdgeInsets.only(
-top: 15,
-right: 20,
-),
-
-child: TextButton(
-onPressed: _nextPage,
-
-style: TextButton.styleFrom(
-foregroundColor: Colors.white,
-
-backgroundColor:
-Colors.black.withOpacity(0.25),
-
-padding:
-const EdgeInsets.symmetric(
-horizontal: 18,
-vertical: 10,
-),
-
-shape:
-RoundedRectangleBorder(
-borderRadius:
-BorderRadius.circular(25),
-),
-),
-
-child: const Text(
-'Next',
-
-style: TextStyle(
-fontSize: 16,
-fontWeight: FontWeight.w600,
-),
-),
-),
-),
-),
-
-const Spacer(),
-
-// ==================================================
-// INDICATEURS
-// ==================================================
-
-if (!isLastPage)
-Padding(
-padding: const EdgeInsets.only(
+Positioned(
+left: 0,
+right: 0,
 bottom: 35,
-),
 
 child: Row(
 mainAxisAlignment:
@@ -337,92 +415,108 @@ const Duration(
 milliseconds: 300,
 ),
 
-curve: Curves.easeOut,
+curve:
+Curves.easeOut,
 
 margin:
-const EdgeInsets.symmetric(
+const EdgeInsets
+    .symmetric(
 horizontal: 4,
 ),
 
-width: isActive ? 22 : 7,
+width:
+isActive ? 22 : 7,
+
 height: 7,
 
-decoration: BoxDecoration(
+decoration:
+BoxDecoration(
 color: isActive
 ? const Color(
 0xFF2D72F5,
 )
     : Colors.white
-    .withOpacity(0.30),
+    .withOpacity(
+0.30,
+),
 
 borderRadius:
-BorderRadius.circular(10),
+BorderRadius
+    .circular(10),
 ),
 );
 },
 ),
 ),
 ),
-],
-),
-),
 
-// ======================================================
-// GET STARTED — DERNIÈRE PAGE
-// ======================================================
+// ==================================================
+// GET STARTED
+// ==================================================
 
 if (isLastPage)
 Positioned(
 left: 0,
 right: 0,
 
-// Bouton légèrement plus bas
 bottom:
-MediaQuery.of(context).size.height * 0.12,
+MediaQuery.of(context)
+    .size
+    .height *
+0.12,
 
 child: Center(
 child: AnimatedBuilder(
-animation: _buttonController,
+animation:
+_buttonController,
 
 builder: (
 BuildContext context,
 Widget? child,
 ) {
 return Opacity(
-opacity: _buttonOpacity.value,
+opacity:
+_buttonOpacity.value,
 
-child: Transform.scale(
-scale: _buttonScale.value,
+child:
+Transform.scale(
+scale:
+_buttonScale.value,
 
-alignment: Alignment.center,
+alignment:
+Alignment.center,
 
 child: child,
 ),
 );
 },
 
-// ==================================================
-// BOUTON
-// ==================================================
-
-child: GestureDetector(
+child:
+GestureDetector(
 behavior:
 HitTestBehavior.opaque,
 
-onTap: _nextPage,
+onTap: () {
+Navigator.pushReplacement(
+context,
+MaterialPageRoute(
+builder:
+(context) =>
+const DashboardPage(),
+),
+);
+},
 
 child: Container(
-// Bouton plus petit
 width: 350,
 height: 62,
 
-decoration: BoxDecoration(
+decoration:
+BoxDecoration(
 borderRadius:
-BorderRadius.circular(32),
-
-// ==================================================
-// GRADIENT
-// ==================================================
+BorderRadius.circular(
+32,
+),
 
 gradient:
 const LinearGradient(
@@ -439,45 +533,42 @@ Color(0xFF7B2CFF),
 ],
 ),
 
-// ==================================================
-// GLOW
-// ==================================================
-
 boxShadow: [
 BoxShadow(
 color:
-const Color(0xFF4D4DFF)
-    .withOpacity(0.45),
+const Color(
+0xFF4D4DFF,
+).withOpacity(
+0.45,
+),
 
 blurRadius: 25,
 
 spreadRadius: 2,
 
 offset:
-const Offset(0, 7),
+const Offset(
+0,
+7,
+),
 ),
 ],
 ),
 
-// ==================================================
-// CONTENU DU BOUTON
-// ==================================================
-
 child: Row(
 mainAxisAlignment:
-MainAxisAlignment.center,
+MainAxisAlignment
+    .center,
 
 children: [
-
-// ==================================================
-// TEXTE
-// ==================================================
 
 const Text(
 'Get Started',
 
-style: TextStyle(
-color: Colors.white,
+style:
+TextStyle(
+color:
+Colors.white,
 
 fontSize: 18,
 
@@ -492,28 +583,29 @@ const SizedBox(
 width: 14,
 ),
 
-// ==================================================
-// CERCLE + FLÈCHE
-// ==================================================
-
 Container(
 width: 34,
 height: 34,
 
 decoration:
 BoxDecoration(
-color: Colors.white
-    .withOpacity(0.18),
+color: Colors
+    .white
+    .withOpacity(
+0.18,
+),
 
 shape:
 BoxShape.circle,
 ),
 
-child: const Icon(
+child:
+const Icon(
 Icons
     .arrow_forward_rounded,
 
-color: Colors.white,
+color:
+Colors.white,
 
 size: 20,
 ),
@@ -527,6 +619,124 @@ size: 20,
 ),
 ],
 ),
+),
+);
+}
+
+// ============================================================
+// PREVIOUS BUTTON
+// ============================================================
+
+Widget _buildPreviousButton() {
+return TextButton.icon(
+onPressed: _previousPage,
+
+style: TextButton.styleFrom(
+foregroundColor:
+Colors.white.withOpacity(0.90),
+
+// Fond beaucoup plus discret
+backgroundColor:
+Colors.black.withOpacity(0.18),
+
+padding:
+const EdgeInsets.symmetric(
+horizontal: 12,
+vertical: 7,
+),
+
+minimumSize:
+const Size(0, 36),
+
+tapTargetSize:
+MaterialTapTargetSize.shrinkWrap,
+
+shape:
+RoundedRectangleBorder(
+borderRadius:
+BorderRadius.circular(20),
+),
+),
+
+icon: Icon(
+Icons.arrow_back_ios_new_rounded,
+size: 13,
+
+color:
+Colors.white.withOpacity(0.85),
+),
+
+label: Text(
+'Previous',
+
+style: TextStyle(
+fontSize: 13,
+fontWeight:
+FontWeight.w600,
+
+color:
+Colors.white.withOpacity(0.90),
+),
+),
+);
+}
+
+// ============================================================
+// NEXT BUTTON
+// ============================================================
+
+Widget _buildNextButton() {
+return TextButton.icon(
+onPressed: _nextPage,
+
+style: TextButton.styleFrom(
+foregroundColor:
+Colors.white.withOpacity(0.90),
+
+// Fond beaucoup plus discret
+backgroundColor:
+Colors.black.withOpacity(0.18),
+
+padding:
+const EdgeInsets.symmetric(
+horizontal: 12,
+vertical: 7,
+),
+
+minimumSize:
+const Size(0, 36),
+
+tapTargetSize:
+MaterialTapTargetSize.shrinkWrap,
+
+shape:
+RoundedRectangleBorder(
+borderRadius:
+BorderRadius.circular(20),
+),
+),
+
+icon: Icon(
+Icons.arrow_forward_ios_rounded,
+size: 13,
+
+color:
+Colors.white.withOpacity(0.85),
+),
+
+label: Text(
+'Next',
+
+style: TextStyle(
+fontSize: 13,
+fontWeight:
+FontWeight.w600,
+
+color:
+Colors.white.withOpacity(0.90),
+),
+),
 );
 }
 }
+

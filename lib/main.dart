@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'acceuil.dart';
 import 'onboarding_page.dart';
+import 'dashboardPage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
