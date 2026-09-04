@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dashboardPage.dart';
+import 'sign_in.dart';
+
 
 class OnboardingPage extends StatefulWidget {
 const OnboardingPage({super.key});
@@ -496,16 +497,14 @@ GestureDetector(
 behavior:
 HitTestBehavior.opaque,
 
-onTap: () {
-Navigator.pushReplacement(
-context,
-MaterialPageRoute(
-builder:
-(context) =>
-const DashboardPage(),
-),
-);
-},
+  onTap: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+    );
+  },
 
 child: Container(
 width: 350,
