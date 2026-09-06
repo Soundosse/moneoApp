@@ -17,10 +17,15 @@ class AuthService {
   // GOOGLE SIGN-IN
   // ============================================================
 
-  final GoogleSignIn _googleSignIn =
-      GoogleSignIn.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
   bool _googleInitialized = false;
+
+  // ============================================================
+  // CURRENT USER
+  // ============================================================
+
+  User? get currentUser => _auth.currentUser;
 
   // ============================================================
   // INITIALISER GOOGLE SIGN-IN
@@ -35,13 +40,362 @@ class AuthService {
 
     _googleInitialized = true;
 
+    debugPrint('✅ Google Sign-In initialisé');
+  }
+
+  // ============================================================
+  // INSCRIPTION EMAIL / PASSWORD
+  // ============================================================
+
+  Future<UserCredential> signUpWithEmail({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    try {
+      final String cleanEmail = email.trim();
+      final String cleanName = displayName.trim();
+
+      if (cleanEmail.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'invalid-email',
+          message: 'Veuillez entrer votre adresse e-mail.',
+        );
+      }
+
+      if (password.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'weak-password',
+          message: 'Veuillez entrer un mot de passe.',
+        );
+      }
+
+      if (cleanName.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'invalid-display-name',
+          message: 'Veuillez entrer votre nom.',
+        );
+      }
+
+      // --------------------------------------------------------
+      // 1. CRÉER LE COMPTE FIREBASE
+      // --------------------------------------------------------
+
+      debugPrint(
+        '🔵 Création du compte : $cleanEmail',
+      );
+
+      final UserCredential userCredential =
+      await _auth.createUserWithEmailAndPassword(
+        email: cleanEmail,
+        password: password,
+      );
+
+      final User? user = userCredential.user;
+
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'user-null',
+          message: 'Impossible de récupérer le nouvel utilisateur.',
+        );
+      }
+
+      debugPrint(
+        '✅ Compte Firebase créé',
+      );
+
+      debugPrint(
+        'UID : ${user.uid}',
+      );
+
+      // --------------------------------------------------------
+      // 2. ENREGISTRER LE DISPLAY NAME DANS FIREBASE AUTH
+      // --------------------------------------------------------
+
+      await user.updateDisplayName(cleanName);
+
+      // Important : récupérer la version actualisée
+      await user.reload();
+
+      final User? updatedUser = _auth.currentUser;
+
+      debugPrint(
+        '✅ Display name enregistré : '
+            '${updatedUser?.displayName}',
+      );
+
+      // --------------------------------------------------------
+      // 3. ENVOYER L'EMAIL DE VÉRIFICATION
+      // --------------------------------------------------------
+
+      await sendVerificationEmail();
+
+      debugPrint(
+        '✅ Email de vérification demandé',
+      );
+
+      // --------------------------------------------------------
+      // 4. CRÉER LE PROFIL FIRESTORE
+      // --------------------------------------------------------
+
+      await createUserProfile(
+        user: updatedUser ?? user,
+        name: cleanName,
+      );
+
+      debugPrint(
+        '✅ Profil Firestore créé',
+      );
+
+      return userCredential;
+    }
+
+    // ==========================================================
+    // FIREBASE AUTH ERROR
+    // ==========================================================
+
+    on FirebaseAuthException catch (e, stackTrace) {
+      debugPrint(
+        '==========================================',
+      );
+
+      debugPrint(
+        '❌ SIGN UP FIREBASE AUTH ERROR',
+      );
+
+      debugPrint(
+        'Code : ${e.code}',
+      );
+
+      debugPrint(
+        'Message : ${e.message}',
+      );
+
+      debugPrint(
+        '==========================================',
+      );
+
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
+
+      rethrow;
+    }
+
+    // ==========================================================
+    // FIREBASE ERROR
+    // ==========================================================
+
+    on FirebaseException catch (e, stackTrace) {
+      debugPrint(
+        '==========================================',
+      );
+
+      debugPrint(
+        '❌ FIREBASE ERROR',
+      );
+
+      debugPrint(
+        'Plugin : ${e.plugin}',
+      );
+
+      debugPrint(
+        'Code : ${e.code}',
+      );
+
+      debugPrint(
+        'Message : ${e.message}',
+      );
+
+      debugPrint(
+        '==========================================',
+      );
+
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
+
+      rethrow;
+    }
+
+    // ==========================================================
+    // OTHER ERROR
+    // ==========================================================
+
+    catch (e, stackTrace) {
+      debugPrint(
+        '==========================================',
+      );
+
+      debugPrint(
+        '❌ SIGN UP UNKNOWN ERROR',
+      );
+
+      debugPrint(
+        '$e',
+      );
+
+      debugPrint(
+        '==========================================',
+      );
+
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
+
+      rethrow;
+    }
+  }
+
+  // ============================================================
+  // ENVOYER EMAIL DE VÉRIFICATION
+  // ============================================================
+
+  Future<void> sendVerificationEmail() async {
+    final User? user = _auth.currentUser;
+
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Aucun utilisateur connecté.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // ACTUALISER L'UTILISATEUR
+    // ----------------------------------------------------------
+
+    await user.reload();
+
+    final User? refreshedUser = _auth.currentUser;
+
+    if (refreshedUser == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Utilisateur introuvable.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // DÉJÀ VÉRIFIÉ
+    // ----------------------------------------------------------
+
+    if (refreshedUser.emailVerified) {
+      debugPrint(
+        'ℹ️ Email déjà vérifié.',
+      );
+
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // LANGUE
+    // ----------------------------------------------------------
+
+    await _auth.setLanguageCode('fr');
+
+    // ----------------------------------------------------------
+    // ENVOYER
+    // ----------------------------------------------------------
+
     debugPrint(
-      '✅ Google Sign-In initialisé',
+      '📧 Envoi de l email de vérification vers '
+          '${refreshedUser.email}',
+    );
+
+    await refreshedUser.sendEmailVerification();
+
+    debugPrint(
+      '✅ Demande d email de vérification envoyée',
     );
   }
 
   // ============================================================
-  // CONNEXION GOOGLE
+  // VÉRIFIER SI L'EMAIL EST VÉRIFIÉ
+  // ============================================================
+
+  Future<bool> isEmailVerified() async {
+    final User? user = _auth.currentUser;
+
+    if (user == null) {
+      return false;
+    }
+
+    try {
+      await user.reload();
+
+      final User? refreshedUser = _auth.currentUser;
+
+      return refreshedUser?.emailVerified ?? false;
+    } catch (e) {
+      debugPrint(
+        '❌ Impossible de recharger utilisateur : $e',
+      );
+
+      return false;
+    }
+  }
+
+  // ============================================================
+  // CRÉER LE PROFIL FIRESTORE
+  // ============================================================
+
+  Future<void> createUserProfile({
+    required User user,
+    required String name,
+  }) async {
+    final DocumentReference<Map<String, dynamic>> userRef =
+    _firestore
+        .collection('users')
+        .doc(user.uid);
+
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
+    await userRef.get();
+
+    // ----------------------------------------------------------
+    // SI LE PROFIL EXISTE DÉJÀ
+    // ----------------------------------------------------------
+
+    if (snapshot.exists) {
+      debugPrint(
+        'ℹ️ Profil users/${user.uid} existe déjà.',
+      );
+
+      // Mise à jour du nom/email/photo sans écraser
+      // les autres données de l'utilisateur.
+      await userRef.set(
+        {
+          'name': name,
+          'email': user.email ?? '',
+          'photoUrl': user.photoURL ?? '',
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // NOUVEAU PROFIL
+    // ----------------------------------------------------------
+
+    await userRef.set({
+      'name': name,
+      'email': user.email ?? '',
+      'currency': 'MAD',
+      'photoUrl': user.photoURL ?? '',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    debugPrint(
+      '✅ Nouveau profil users/${user.uid} créé.',
+    );
+  }
+
+  // ============================================================
+  // GOOGLE SIGN-IN
   // ============================================================
 
   Future<UserCredential?> signInWithGoogle() async {
@@ -69,7 +423,7 @@ class AuthService {
       );
 
       // --------------------------------------------------------
-      // 3. RÉCUPÉRER L'AUTHENTIFICATION GOOGLE
+      // 3. AUTHENTIFICATION GOOGLE
       // --------------------------------------------------------
 
       final GoogleSignInAuthentication googleAuth =
@@ -80,20 +434,16 @@ class AuthService {
             '${googleAuth.idToken != null}',
       );
 
-      // --------------------------------------------------------
-      // 4. VÉRIFIER LE TOKEN
-      // --------------------------------------------------------
-
       if (googleAuth.idToken == null) {
         debugPrint(
-          '❌ ID Token Google est null',
+          '❌ ID Token Google null',
         );
 
         return null;
       }
 
       // --------------------------------------------------------
-      // 5. CRÉER LE CREDENTIAL FIREBASE
+      // 4. CRÉER CREDENTIAL FIREBASE
       // --------------------------------------------------------
 
       final OAuthCredential credential =
@@ -106,7 +456,7 @@ class AuthService {
       );
 
       // --------------------------------------------------------
-      // 6. CONNEXION À FIREBASE AUTHENTICATION
+      // 5. CONNEXION FIREBASE
       // --------------------------------------------------------
 
       final UserCredential userCredential =
@@ -114,12 +464,7 @@ class AuthService {
         credential,
       );
 
-      final User? user =
-          userCredential.user;
-
-      // --------------------------------------------------------
-      // 7. VÉRIFIER L'UTILISATEUR
-      // --------------------------------------------------------
+      final User? user = userCredential.user;
 
       if (user == null) {
         debugPrint(
@@ -134,72 +479,35 @@ class AuthService {
       );
 
       debugPrint(
-        'UID Firebase : ${user.uid}',
+        'UID : ${user.uid}',
       );
 
       debugPrint(
-        'Email Firebase : ${user.email}',
+        'Email : ${user.email}',
       );
-
-      // --------------------------------------------------------
-      // 8. RÉFÉRENCE FIRESTORE
-      // --------------------------------------------------------
-
-      final DocumentReference userRef =
-      _firestore
-          .collection('users')
-          .doc(user.uid);
 
       debugPrint(
-        '📁 Lecture Firestore : users/${user.uid}',
+        'Display name : ${user.displayName}',
       );
 
       // --------------------------------------------------------
-      // 9. VÉRIFIER SI LE PROFIL EXISTE
+      // 6. GOOGLE = EMAIL DÉJÀ AUTHENTIFIÉ
       // --------------------------------------------------------
 
-      final DocumentSnapshot userDoc =
-      await userRef.get();
-
-      debugPrint(
-        '✅ Lecture Firestore réussie',
+      await createUserProfile(
+        user: user,
+        name: user.displayName ?? '',
       );
 
       // --------------------------------------------------------
-      // 10. CRÉER LE PROFIL SI NÉCESSAIRE
-      // --------------------------------------------------------
-
-      if (!userDoc.exists) {
-        debugPrint(
-          '🆕 Profil Firestore inexistant',
-        );
-
-        await userRef.set({
-          'name': user.displayName ?? '',
-          'email': user.email ?? '',
-          'currency': 'MAD',
-          'createdAt': FieldValue.serverTimestamp(),
-          'photoUrl': user.photoURL ?? '',
-        });
-
-        debugPrint(
-          '✅ Profil Firestore créé',
-        );
-      } else {
-        debugPrint(
-          '✅ Profil Firestore déjà existant',
-        );
-      }
-
-      // --------------------------------------------------------
-      // 11. RETOURNER LA CONNEXION
+      // 7. RETOUR
       // --------------------------------------------------------
 
       return userCredential;
     }
 
     // ==========================================================
-    // ERREUR GOOGLE SIGN-IN
+    // GOOGLE ERROR
     // ==========================================================
 
     on GoogleSignInException catch (e, stackTrace) {
@@ -235,7 +543,7 @@ class AuthService {
     }
 
     // ==========================================================
-    // ERREUR FIREBASE AUTH
+    // FIREBASE AUTH ERROR
     // ==========================================================
 
     on FirebaseAuthException catch (e, stackTrace) {
@@ -267,7 +575,7 @@ class AuthService {
     }
 
     // ==========================================================
-    // ERREUR FIRESTORE
+    // FIRESTORE ERROR
     // ==========================================================
 
     on FirebaseException catch (e, stackTrace) {
@@ -303,7 +611,7 @@ class AuthService {
     }
 
     // ==========================================================
-    // AUTRE ERREUR
+    // OTHER ERROR
     // ==========================================================
 
     catch (e, stackTrace) {
@@ -312,7 +620,7 @@ class AuthService {
       );
 
       debugPrint(
-        '❌ ERREUR INATTENDUE',
+        '❌ UNKNOWN GOOGLE ERROR',
       );
 
       debugPrint(
@@ -348,7 +656,7 @@ class AuthService {
       );
     } catch (e, stackTrace) {
       debugPrint(
-        '❌ Erreur lors de la déconnexion : $e',
+        '❌ Erreur déconnexion : $e',
       );
 
       debugPrintStack(
@@ -358,10 +666,30 @@ class AuthService {
   }
 
   // ============================================================
-  // UTILISATEUR ACTUEL
+  // RECHARGER L'UTILISATEUR
   // ============================================================
 
-  User? get currentUser {
-    return _auth.currentUser;
+  Future<User?> reloadCurrentUser() async {
+    try {
+      final User? user = _auth.currentUser;
+
+      if (user == null) {
+        return null;
+      }
+
+      await user.reload();
+
+      return _auth.currentUser;
+    } catch (e, stackTrace) {
+      debugPrint(
+        '❌ Erreur reload utilisateur : $e',
+      );
+
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
+
+      return null;
+    }
   }
 }

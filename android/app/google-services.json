@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "945703017398-j6a41bsdr07ukp1igqhj2hdqseqtr7gn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.moneo",
+            "certificate_hash": "891e6909ed180f0583160196217368cb69df035d"
+          }
+        },
+        {
           "client_id": "945703017398-umchtqfv6frhm8uscm4sl3bsdhu9fk96.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -16,6 +16,7 @@ dependencies:
   firebase_auth: ^6.6.1
   cloud_firestore: ^6.9.0
   google_sign_in: ^7.2.0
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
@@ -37,5 +38,3 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/moneo_logo.png
-    - assets/moneo_bottom_wave.png
